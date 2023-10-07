@@ -2,6 +2,7 @@ from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_wtf.csrf import CSRFProtect
 from supabase import create_client
+from flask_cors import CORS
 import stripe
 import os
 import json
@@ -16,6 +17,7 @@ url = os.getenv('SUPABASE_PROJECT_URL')
 key = os.getenv('SUPABASE_API_KEY')
 SUPABASE_API_KEY: str = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpyeGxsdXhhamZhdnlndWpqeWdjIiwicm9sZSI6ImFub24iLCJpYXQiOjE2OTYzNzU0MjAsImV4cCI6MjAxMTk1MTQyMH0.PqkAMN8KFACclum_-86xMSzphxKXUSU26QL5Oi-iQFE'
 supabase: Client = create_client(SUPABASE_PROJECT_URL, SUPABASE_API_KEY)
+CORS(app)
 
 @app.route('/')
 def default():
