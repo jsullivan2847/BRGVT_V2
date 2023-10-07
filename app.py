@@ -33,10 +33,16 @@ def login():
 def create():
     return "Supabase CREATE"
 
-@app.route('/get')
+@app.route('/Products')
 def get():
     data = supabase.table('Products').select("*").execute()
     return data.data
+
+@app.route('/Products/<int:product_id>')
+def get_product(product_id):
+    data = supabase.table('Products').select("*").eq('id',product_id).execute()
+    if data: return data.data
+    return "Product not found"
 
 @app.route('/supabase/update')
 def update():
