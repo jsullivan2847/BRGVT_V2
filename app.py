@@ -1,14 +1,9 @@
-from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
-from flask_wtf.csrf import CSRFProtect
 from supabase import create_client
 from flask_cors import CORS
 import stripe
 import os
 import json
-
 from supabase import create_client, Client
-
 from flask import Flask, request
 
 app = Flask(__name__)
@@ -23,24 +18,26 @@ CORS(app)
 def default():
     return "Hello World"
 
+#Get all products
 @app.route('/Products')
 def get():
     data = supabase.table('Products').select("*").execute()
     return data.data
 
+#Get A Specific Product
 @app.route('/Products/<int:product_id>')
 def get_product(product_id):
     data = supabase.table('Products').select("*").eq('id',product_id).execute()
     if data: return data.data
     return "Product not found"
 
+#Upload a photo
 @app.route('/Photos/Upload', methods=['POST'])
-
 def upload_file():
     try:
         if 'file' not in request.files:
             return json.dumps({'error': 'No file part'})
-
+        
         file = request.files['file'].read()
         file_name = str(request.files.getlist('file')[0].filename)
 
@@ -52,29 +49,21 @@ def upload_file():
         response = bucket.upload(file=file, path=file_name, file_options={"content-type": "image/jpeg"})
 
         if response.status_code == 200:
-            return "Uploaded successfully"
+            return f"https://jrxlluxajfavygujjygc.supabase.co/storage/v1/object/public/product_photos/{file_name}"
         else:
             return json.dumps({'error': f'File upload failed. Status code: {response.status_code}', 'response_text': response.text})
     
     except Exception as e:
         return json.dumps({'error': str(e)})
     
-#get photo
-@app.route('/Photos/<int:file_id>')
-def photos(file_id):
-    bucket = supabase.storage.get_bucket('product_photos')
-    # Get the URL of the file in the Storage Bucket
-    res = supabase.storage.from_('product_photos').list()
+#Update a specific product
+@app.route('/Products/<int:product_id>',methods=['PUT'])
+def update_product(product_id):
+    data = request.json
 
-    print('hello',res)
-
-    # response = bucket.create_signed_url(file_id, 3600)  # 3600 seconds (1 hour) URL expiration
-
-    # if response['error']:
-    #     return json({'error': response['error']})
-    
-    # return json({'url': response['signedURL']})
-    return 'hello'
+    response = supabase.table('Products').update({"images":data}).eq('id', product_id).execute()
+    if response: return response.data
+    return "Product not found"
 
 @app.route('/login', methods=['POST'])
 def login():
