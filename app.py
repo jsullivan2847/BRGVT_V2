@@ -60,8 +60,10 @@ def upload_file():
 @app.route('/Products/<int:product_id>',methods=['PUT'])
 def update_product(product_id):
     data = request.json
-
-    response = supabase.table('Products').update({"images":data}).eq('id', product_id).execute()
+    response_obj = {}
+    for item in data.keys():
+        response_obj[item] = data[item]
+    response = supabase.table('Products').update(response_obj).eq('id', product_id).execute()
     if response: return response.data
     return "Product not found"
 
