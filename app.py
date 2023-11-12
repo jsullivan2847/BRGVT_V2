@@ -4,7 +4,7 @@ import stripe
 import os
 import json
 from supabase import create_client, Client
-from flask import Flask, request
+from flask import Flask, request, Response
 
 app = Flask(__name__)
 SUPABASE_PROJECT_URL: str = 'https://jrxlluxajfavygujjygc.supabase.co'
@@ -51,10 +51,13 @@ def upload_file():
         if response.status_code == 200:
             return f"https://jrxlluxajfavygujjygc.supabase.co/storage/v1/object/public/product_photos/{file_name}"
         else:
-            return json.dumps({'error': f'File upload failed. Status code: {response.status_code}', 'response_text': response.text})
+            return json.dumps({"Status":response.status_code})
     
     except Exception as e:
-        return json.dumps({'error': str(e)})
+        return Response(
+            json.dumps({'error': str(e)}),
+            status=409
+        )
     
 #Update a specific product
 @app.route('/Products/<int:product_id>',methods=['PUT'])
