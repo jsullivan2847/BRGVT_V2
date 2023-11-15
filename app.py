@@ -4,7 +4,7 @@ import stripe
 import os
 import json
 from supabase import create_client, Client
-from flask import Flask, request, Response
+from flask import Flask, request, Response, session
 
 app = Flask(__name__)
 SUPABASE_PROJECT_URL: str = 'https://jrxlluxajfavygujjygc.supabase.co'
@@ -13,9 +13,12 @@ key = os.getenv('SUPABASE_API_KEY')
 SUPABASE_API_KEY: str = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpyeGxsdXhhamZhdnlndWpqeWdjIiwicm9sZSI6ImFub24iLCJpYXQiOjE2OTYzNzU0MjAsImV4cCI6MjAxMTk1MTQyMH0.PqkAMN8KFACclum_-86xMSzphxKXUSU26QL5Oi-iQFE'
 supabase: Client = create_client(SUPABASE_PROJECT_URL, SUPABASE_API_KEY)
 CORS(app)
+app.secret_key = os.getenv('SECRET_KEY')
 
 @app.route('/')
 def default():
+    cart = session.get('cart', [])
+    print(cart)
     return "Hello World"
 
 #Get all products
@@ -69,6 +72,24 @@ def update_product(product_id):
     response = supabase.table('Products').update(response_obj).eq('id', product_id).execute()
     if response: return response.data
     return "Product not found"
+
+#Add to cart
+@app.route('/add-to-cart', methods=['POST'])
+def add_to_cart():
+    # Get product details from the request
+    product_id = request.json.get('product_id')
+    quantity = request.json.get('quantity', 1)
+
+    # Retrieve cart data from the session or initialize an empty cart
+    cart = session.get('cart', [])
+
+    # Add the product to the cart
+    cart.append({'product_id': product_id, 'quantity': quantity})
+
+    # Update the cart data in the session
+    session['cart'] = cart
+
+    return {'success': True, 'cart': cart}
 
 @app.route('/login', methods=['POST'])
 def login():
