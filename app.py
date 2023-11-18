@@ -65,26 +65,23 @@ def upload_file():
 # Delete a photo
 @app.route('/Photos/Delete', methods=['POST'])
 def delete_file():
-    try:
-        data = request.get_json()
-        file_name = data.get('file_name')
+    data = request.get_json()
+    file_name = data.get('file_name')
 
-        if not file_name:
-            return jsonify({'error': 'No file name provided'})
-        print('got here')
-        # Attempt to delete the file from Supabase Storage
-        files_res = supabase.storage.from_('bucket_name').list()
-        if(file_name in files_res):
-            response = supabase.storage.from_('product_photos').remove(file_name)
-            print("logging: ",response['httpStatusCode'])
-        else: return Response(
-            json.dumps({'error': "file doesn't exist in bucket"}),
-            status=404
-        )
-    except Exception as e:
-        return Response(
-            json.dumps({'error': str(e)})
-        )
+    if not file_name:
+        return jsonify({'error': 'No file name provided'})
+    # Attempt to delete the file from Supabase Storage
+    files_res = supabase.storage.from_('product_photos').list()
+    names = [item['name'] for item in files_res]
+    print(names)
+    if(file_name in names):
+        print("made it here")
+        response = supabase.storage.from_('product_photos').remove(file_name)
+        return response
+    else: return Response(
+        json.dumps({'error': "file doesn't exist in bucket"}),
+        status=404
+    )
     
 #Update a specific product
 @app.route('/Products/<int:product_id>',methods=['PUT'])
