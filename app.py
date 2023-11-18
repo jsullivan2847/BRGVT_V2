@@ -61,6 +61,30 @@ def upload_file():
             json.dumps({'error': str(e)}),
             status=409
         )
+
+# Delete a photo
+@app.route('/Photos/Delete', methods=['POST'])
+def delete_file():
+    try:
+        data = request.get_json()
+        file_name = data.get('file_name')
+
+        if not file_name:
+            return jsonify({'error': 'No file name provided'})
+        print('got here')
+        # Attempt to delete the file from Supabase Storage
+        files_res = supabase.storage.from_('bucket_name').list()
+        if(file_name in files_res):
+            response = supabase.storage.from_('product_photos').remove(file_name)
+            print("logging: ",response['httpStatusCode'])
+        else: return Response(
+            json.dumps({'error': "file doesn't exist in bucket"}),
+            status=404
+        )
+    except Exception as e:
+        return Response(
+            json.dumps({'error': str(e)})
+        )
     
 #Update a specific product
 @app.route('/Products/<int:product_id>',methods=['PUT'])
@@ -90,6 +114,24 @@ def add_to_cart():
     session['cart'] = cart
 
     return {'success': True, 'cart': cart}
+
+#Get cart session data
+@app.route('/cart', methods=['GET'])
+def getcart():
+    cart = session.get('cart', [])
+    return jsonify({'cart': cart})
+
+#edit cart
+def update_cart():
+    data = request.get_json()
+
+    # Assuming data is a dictionary containing the updated cart information
+    updated_cart = data.get('cart', [])
+
+    # Update the cart data in the session
+    session['cart'] = updated_cart
+
+    return jsonify({'message': 'Cart updated successfully'})
 
 @app.route('/login', methods=['POST'])
 def login():
