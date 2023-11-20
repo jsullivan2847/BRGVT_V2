@@ -17,7 +17,9 @@ supabase: Client = create_client(SUPABASE_PROJECT_URL, SUPABASE_API_KEY)
 CORS(app,supports_credentials=True, origins='*')
 app.secret_key = os.getenv('SECRET_KEY')
 app.session_interface = SecureCookieSessionInterface()
-app.config['SESSION_TYPE'] = 'filesystem'  # You can use other types like 'redis' as well
+app.config['SESSION_TYPE'] = 'filesystem'
+app.config['SESSION_COOKIE_SAMESITE'] = 'None'
+app.config['SESSION_COOKIE_SECURE'] = True
 Session(app)
 
 
@@ -109,19 +111,23 @@ def add_to_cart():
         response.headers.add('Access-Control-Allow-Credentials', 'true') 
         response.headers.add('Content-Type', 'application/json')
         response = jsonify({'success': True})
-        print(response.headers)
+        print(response)
         return response
     
-    product_id = request.json.get('product_id')
+    product = request.json.get('product')
 
-    if product_id:
+    if product:
         cart = session.get('cart', [])
-        cart.append({'product_id': product_id})
+        matching_products = [item for item in cart if item['product']['id'] == product['id']]
+        if matching_products:
+            product = matching_products[0]
+            print("product ",product)
+            product['quantity'] += 1
+        else:
+            print('no product')
+            cart.append({'product': product, "quantity":1})
         session['cart'] = cart
-        response = make_response(jsonify({'success': cart}))
-        response.headers.add('Set-Cookie', 'session_cookie=your_cookie_value; SameSite=None; Secure; HttpOnly')
-        print(response.headers)
-        return response
+        return jsonify({'success': cart})
     else:
         return jsonify({'success':False, 'message': 'Product not found'})
 
