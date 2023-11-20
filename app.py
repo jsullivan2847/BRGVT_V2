@@ -4,7 +4,9 @@ import stripe
 import os
 import json
 from supabase import create_client, Client
-from flask import Flask, request, Response, session
+from flask import Flask, request, Response, session, jsonify, make_response
+from flask_session import Session
+from flask.sessions import SecureCookieSessionInterface
 
 app = Flask(__name__)
 SUPABASE_PROJECT_URL: str = 'https://jrxlluxajfavygujjygc.supabase.co'
@@ -12,13 +14,15 @@ url = os.getenv('SUPABASE_PROJECT_URL')
 key = os.getenv('SUPABASE_API_KEY')
 SUPABASE_API_KEY: str = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpyeGxsdXhhamZhdnlndWpqeWdjIiwicm9sZSI6ImFub24iLCJpYXQiOjE2OTYzNzU0MjAsImV4cCI6MjAxMTk1MTQyMH0.PqkAMN8KFACclum_-86xMSzphxKXUSU26QL5Oi-iQFE'
 supabase: Client = create_client(SUPABASE_PROJECT_URL, SUPABASE_API_KEY)
-CORS(app)
+CORS(app,supports_credentials=True, origins='http://localhost:3000')
 app.secret_key = os.getenv('SECRET_KEY')
+app.session_interface = SecureCookieSessionInterface()
+app.config['SESSION_TYPE'] = 'filesystem'  # You can use other types like 'redis' as well
+Session(app)
+
 
 @app.route('/')
 def default():
-    cart = session.get('cart', [])
-    print(cart)
     return "Hello World"
 
 #Get all products
@@ -39,13 +43,13 @@ def get_product(product_id):
 def upload_file():
     try:
         if 'file' not in request.files:
-            return json.dumps({'error': 'No file part'})
+            return jsonify({'error': 'No file part'})
         
         file = request.files['file'].read()
         file_name = str(request.files.getlist('file')[0].filename)
 
         if file_name == '':
-            return json.dumps({'error': 'No selected file'})
+            return jsonify({'error': 'No selected file'})
 
         # Upload the file to the Supabase Storage Bucket
         bucket = supabase.storage.get_bucket('product_photos')
@@ -54,11 +58,11 @@ def upload_file():
         if response.status_code == 200:
             return f"https://jrxlluxajfavygujjygc.supabase.co/storage/v1/object/public/product_photos/{file_name}"
         else:
-            return json.dumps({"Status":response.status_code})
+            return jsonify({"Status":response.status_code})
     
     except Exception as e:
         return Response(
-            json.dumps({'error': str(e)}),
+            jsonify({'error': str(e)}),
             status=409
         )
 
@@ -79,7 +83,7 @@ def delete_file():
         response = supabase.storage.from_('product_photos').remove(file_name)
         return response
     else: return Response(
-        json.dumps({'error': "file doesn't exist in bucket"}),
+        jsonify({'error': "file doesn't exist in bucket"}),
         status=404
     )
     
@@ -95,22 +99,31 @@ def update_product(product_id):
     return "Product not found"
 
 #Add to cart
-@app.route('/add-to-cart', methods=['POST'])
+@app.route('/add-to-cart', methods=['POST','OPTIONS'])
 def add_to_cart():
-    # Get product details from the request
+    if request.method == 'OPTIONS':
+        # Handle CORS preflight request
+        response = make_response()
+        response.headers.add('Access-Control-Allow-Methods', 'POST')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
+        response.headers.add('Access-Control-Allow-Credentials', 'true') 
+        response.headers.add('Content-Type', 'application/json')
+        response = jsonify({'success': True})
+        print(response.headers)
+        return response
+    
     product_id = request.json.get('product_id')
-    quantity = request.json.get('quantity', 1)
 
-    # Retrieve cart data from the session or initialize an empty cart
-    cart = session.get('cart', [])
-
-    # Add the product to the cart
-    cart.append({'product_id': product_id, 'quantity': quantity})
-
-    # Update the cart data in the session
-    session['cart'] = cart
-
-    return {'success': True, 'cart': cart}
+    if product_id:
+        cart = session.get('cart', [])
+        cart.append({'product_id': product_id})
+        session['cart'] = cart
+        response = make_response(jsonify({'success': cart}))
+        response.headers.add('Set-Cookie', 'session_cookie=your_cookie_value; SameSite=None; Secure; HttpOnly')
+        print(response.headers)
+        return response
+    else:
+        return jsonify({'success':False, 'message': 'Product not found'})
 
 #Get cart session data
 @app.route('/cart', methods=['GET'])
