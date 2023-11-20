@@ -14,7 +14,7 @@ url = os.getenv('SUPABASE_PROJECT_URL')
 key = os.getenv('SUPABASE_API_KEY')
 SUPABASE_API_KEY: str = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpyeGxsdXhhamZhdnlndWpqeWdjIiwicm9sZSI6ImFub24iLCJpYXQiOjE2OTYzNzU0MjAsImV4cCI6MjAxMTk1MTQyMH0.PqkAMN8KFACclum_-86xMSzphxKXUSU26QL5Oi-iQFE'
 supabase: Client = create_client(SUPABASE_PROJECT_URL, SUPABASE_API_KEY)
-CORS(app,supports_credentials=True, origins='http://localhost:3000')
+CORS(app,supports_credentials=True, origins='*')
 app.secret_key = os.getenv('SECRET_KEY')
 app.session_interface = SecureCookieSessionInterface()
 app.config['SESSION_TYPE'] = 'filesystem'  # You can use other types like 'redis' as well
