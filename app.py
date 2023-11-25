@@ -2,9 +2,8 @@ from supabase import create_client
 from flask_cors import CORS
 import stripe
 import os
-import json
 from supabase import create_client, Client
-from flask import Flask, request, Response, session, jsonify, make_response
+from flask import Flask, request, Response, session, jsonify, make_response, redirect
 from flask_session import Session
 from flask.sessions import SecureCookieSessionInterface
 
@@ -21,6 +20,7 @@ app.config['SESSION_TYPE'] = 'filesystem'
 app.config['SESSION_COOKIE_SAMESITE'] = 'None'
 app.config['SESSION_COOKIE_SECURE'] = True
 Session(app)
+stripe.api_key = os.getenv('STRIPE_API_KEY')
 
 
 @app.route('/')
@@ -149,6 +149,23 @@ def update_cart():
 
     return jsonify({'message': 'Cart updated successfully'})
 
+
+@app.route('/create-checkout-session', methods=['POST'])
+def create_checkout_session():
+    data = request.get_json()
+    print(data)
+    try: 
+        session = stripe.checkout.Session.create(
+        payment_method_types=['card'],
+        line_items=[data['items']],
+        mode="payment",
+        success_url='http://localhost:3000/success',  # Customize with your success URL
+        cancel_url='http://localhost:3000/cancel',  # Customize with your cancel URL
+        )
+    except Exception as e:
+        return str(e)
+    return jsonify({'id': session.id})
+
 @app.route('/login', methods=['POST'])
 def login():
     data = request.json
@@ -156,18 +173,6 @@ def login():
     user = supabase.auth.sign_in(email=data['email'], password=data['password'])
     print(user)
     return "logged in"
-
-@app.route('/supabase/create')
-def create():
-    return "Supabase CREATE"
-
-@app.route('/supabase/update')
-def update():
-    return "Supabase UPDATE"
-
-@app.route('/supabase/delete')
-def delete():
-    return "Supabase DELETE"
 
 
 if __name__ == '__main__':
