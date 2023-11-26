@@ -166,6 +166,45 @@ def create_checkout_session():
         return str(e)
     return jsonify({'id': session.id})
 
+@app.route('/supabase-webhook', methods=['POST'])
+def supabase_webhook():
+    try:
+        # Parse the JSON payload from Supabase
+        supabase_payload = request.json
+
+        # Extract relevant information from the Supabase payload
+        event_type = supabase_payload['event']['type']
+
+        # Check if this is an INSERT event
+        if event_type == 'INSERT':
+            # Extract details about the new row
+            new_row_data = supabase_payload['event']['data']['new']
+
+            # Use the extracted data to create a product in Stripe
+            product_name = new_row_data['product_name']
+            currency = new_row_data.get('currency', 'usd')  # Default to USD
+            price_amount = new_row_data.get('price_amount')
+            price_currency = new_row_data.get('price_currency', 'usd')  # Default to USD
+
+            # Create a new product in Stripe
+            product = stripe.Product.create(
+                name=product_name
+            )
+
+            # Create a new price for the product
+            stripe.Price.create(
+                product=product.id,
+                unit_amount=price_amount * 100,  # Stripe requires the amount in cents
+                currency=price_currency,
+            )
+
+            return jsonify({'message': 'Product created successfully', 'product_id': product.id}), 200
+
+        return jsonify({'message': 'Unhandled event type'}), 200
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
 @app.route('/stripe-products', methods=['POST'])
 def create_product():
     try:
@@ -230,25 +269,6 @@ def update_product(product_id):
 
     except stripe.error.StripeError as e:
         return jsonify({'error': str(e)}), 400
-
-# @app.route('/stripe-products/<product_id>', methods=['DELETE'])
-# def delete_product(product_id):
-#     try:
-#         # Retrieve the product from Stripe
-#         product = stripe.Product.retrieve(product_id)
-
-#         # Cancel all prices associated with the product
-#         prices = stripe.Price.list(product=product_id)
-#         for price in prices.data:
-#             stripe.Price.modify(price.id, active=False)
-
-#         # Delete the product from Stripe
-#         product.delete()
-
-#         return jsonify({'message': 'Product and associated prices canceled successfully'}), 200
-
-#     except stripe.error.StripeError as e:
-#         return jsonify({'error': str(e)}), 400
     
 
 
