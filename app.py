@@ -91,7 +91,7 @@ def delete_file():
     
 #Update a specific product
 @app.route('/Products/<int:product_id>',methods=['PUT'])
-def update_product(product_id):
+def update_stripe_product(product_id):
     data = request.json
     response_obj = {}
     for item in data.keys():
@@ -165,6 +165,92 @@ def create_checkout_session():
     except Exception as e:
         return str(e)
     return jsonify({'id': session.id})
+
+@app.route('/stripe-products', methods=['POST'])
+def create_product():
+    try:
+        # Get product details from the request
+        product_name = request.json['product_name']
+        # product_type = request.json.get('product_type', 'service')  # Default to 'service'
+        currency = request.json.get('currency', 'usd')  # Default to USD
+        price_amount = request.json.get('price_amount')
+        price_currency = request.json.get('price_currency', 'usd')  # Default to USD
+
+        # Create a new product in Stripe
+        product = stripe.Product.create(
+            name=product_name
+        )
+
+        # Create a new price for the product
+        stripe.Price.create(
+            product=product.id,
+            unit_amount=price_amount,  # Stripe requires the amount in cents
+            currency=price_currency,
+        )
+
+        return jsonify({'message': 'Product created successfully', 'product_id': product.id}), 200
+
+    except stripe.error.StripeError as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.route('/stripe-products/<product_id>', methods=['PUT'])
+def update_product(product_id):
+    try:
+        # Get updated product details from the request
+        updated_name = request.json.get('product_name')
+        # updated_type = request.json.get('product_type')
+        updated_price_amount = request.json.get('price_amount')
+        updated_price_currency = request.json.get('price_currency')
+
+        # Retrieve the product from Stripe
+        product = stripe.Product.retrieve(product_id)
+
+        # Update the product details
+        if updated_name:
+            product.name = updated_name
+        # if updated_type:
+        #     product.type = updated_type
+
+        # Save the updated product
+        product.save()
+
+        # Update the price if provided
+        if updated_price_amount or updated_price_currency:
+            price = stripe.Price.retrieve(product['prices']['data'][0].id)  # Assuming only one price for simplicity
+
+            if updated_price_amount:
+                price.unit_amount = updated_price_amount * 100  # Stripe requires the amount in cents
+            if updated_price_currency:
+                price.currency = updated_price_currency
+
+            # Save the updated price
+            price.save()
+
+        return jsonify({'message': 'Product updated successfully'}), 200
+
+    except stripe.error.StripeError as e:
+        return jsonify({'error': str(e)}), 400
+
+# @app.route('/stripe-products/<product_id>', methods=['DELETE'])
+# def delete_product(product_id):
+#     try:
+#         # Retrieve the product from Stripe
+#         product = stripe.Product.retrieve(product_id)
+
+#         # Cancel all prices associated with the product
+#         prices = stripe.Price.list(product=product_id)
+#         for price in prices.data:
+#             stripe.Price.modify(price.id, active=False)
+
+#         # Delete the product from Stripe
+#         product.delete()
+
+#         return jsonify({'message': 'Product and associated prices canceled successfully'}), 200
+
+#     except stripe.error.StripeError as e:
+#         return jsonify({'error': str(e)}), 400
+    
+
 
 @app.route('/login', methods=['POST'])
 def login():
