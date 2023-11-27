@@ -181,9 +181,9 @@ def supabase_webhook():
             new_row_data = supabase_payload['event']['data']['new']
 
             # Use the extracted data to create a product in Stripe
-            product_name = new_row_data['product_name']
+            product_name = new_row_data['name']
             currency = new_row_data.get('currency', 'usd')  # Default to USD
-            price_amount = new_row_data.get('price_amount')
+            price_amount = new_row_data.get('price')
             price_currency = new_row_data.get('price_currency', 'usd')  # Default to USD
 
             # Create a new product in Stripe
