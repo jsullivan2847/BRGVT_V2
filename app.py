@@ -28,16 +28,60 @@ def default():
     return "Hello World"
 
 #Get all products
-@app.route('/Products')
-def get():
-    data = supabase.table('Products').select("*").execute()
-    return data.data
+@app.route('/Products', methods=['GET', 'POST'])
+def manage_products():
+    if request.method == 'GET':
+        # Handle GET request to retrieve products
+        data = supabase.table('Products').select("*").execute()
+        return data.data
+    elif request.method == 'POST':
+        
+        # Handle POST request to create a new product
+        try:
+            # Extract product information from the request
+            product_data = request.json
+            print('got here: ',product_data)
+            new_product = supabase.table('Products').insert([product_data]).execute()
+            return jsonify({'message': 'Product created successfully', 'product': new_product.data[0]}), 201
+        except Exception as e:
+            return jsonify({'error': str(e)}), 400
+    else:
+        # Handle other HTTP methods
+        return jsonify({'error': 'Method not allowed'}), 405
+    
 
 #Get A Specific Product
-@app.route('/Products/<int:product_id>')
-def get_product(product_id):
-    data = supabase.table('Products').select("*").eq('id',product_id).execute()
-    if data: return data.data
+@app.route('/Products/<int:product_id>', methods=['GET', 'DELETE'])
+def manage_product(product_id):
+    if request.method == 'GET':
+        # Handle GET request to retrieve a specific product
+        data = supabase.table('Products').select("*").eq('id', product_id).execute()
+        if data:
+            return data.data
+        return "Product not found", 404
+
+    elif request.method == 'DELETE':
+        # Handle DELETE request to delete a specific product
+        try:
+            delete_result = supabase.table('Products').delete().eq('id', product_id).execute()
+
+            if delete_result['count'] > 0:
+                return jsonify({'message': f'Product {product_id} deleted successfully'}), 200
+            else:
+                return jsonify({'message': f'Product {product_id} not found'}), 404
+
+        except Exception as e:
+            return jsonify({'error': str(e)}), 400
+
+#Update a specific product
+@app.route('/Products/<int:product_id>',methods=['PUT'])
+def update_stripe_product(product_id):
+    data = request.json
+    response_obj = {}
+    for item in data.keys():
+        response_obj[item] = data[item]
+    response = supabase.table('Products').update(response_obj).eq('id', product_id).execute()
+    if response: return response.data
     return "Product not found"
 
 #Upload a photo
@@ -88,17 +132,6 @@ def delete_file():
         jsonify({'error': "file doesn't exist in bucket"}),
         status=404
     )
-    
-#Update a specific product
-@app.route('/Products/<int:product_id>',methods=['PUT'])
-def update_stripe_product(product_id):
-    data = request.json
-    response_obj = {}
-    for item in data.keys():
-        response_obj[item] = data[item]
-    response = supabase.table('Products').update(response_obj).eq('id', product_id).execute()
-    if response: return response.data
-    return "Product not found"
 
 #Add to cart
 @app.route('/add-to-cart', methods=['POST','OPTIONS'])
@@ -171,14 +204,14 @@ def supabase_webhook():
     try:
         # Parse the JSON payload from Supabase
         supabase_payload = request.json
-
+        print("supabase payload: ",supabase_payload)
         # Extract relevant information from the Supabase payload
-        event_type = supabase_payload['event']['type']
-
+        event_type = supabase_payload['type']
+        print("event type: ",event_type)
         # Check if this is an INSERT event
         if event_type == 'INSERT':
             # Extract details about the new row
-            new_row_data = supabase_payload['event']['data']['new']
+            new_row_data = supabase_payload['record']
 
             # Use the extracted data to create a product in Stripe
             product_name = new_row_data['name']
@@ -205,69 +238,51 @@ def supabase_webhook():
     except Exception as e:
         return jsonify({'error': str(e)}), 400
 
-@app.route('/stripe-products', methods=['POST'])
-def create_product():
+
+@app.route('/supabase-webhook-update', methods=['POST'])
+def update_supabase_webhook():
     try:
-        # Get product details from the request
-        product_name = request.json['product_name']
-        # product_type = request.json.get('product_type', 'service')  # Default to 'service'
-        currency = request.json.get('currency', 'usd')  # Default to USD
-        price_amount = request.json.get('price_amount')
-        price_currency = request.json.get('price_currency', 'usd')  # Default to USD
+        # Parse the JSON payload from Supabase
+        supabase_payload = request.json
+        print("supabase payload: ", supabase_payload)
+        
+        # Extract relevant information from the Supabase payload
+        event_type = supabase_payload['type']
+        print("event type: ", event_type)
+        
+        # Check if this is an UPDATE event
+        if event_type == 'UPDATE':
+            # Extract details about the updated row
+            updated_row_data = supabase_payload['record']
 
-        # Create a new product in Stripe
-        product = stripe.Product.create(
-            name=product_name
-        )
+            # Use the extracted data to update the corresponding product in Stripe
+            product_id = updated_row_data['id']  # Assuming 'id' is the identifier for the product
+            product_name = updated_row_data['name']
+            currency = updated_row_data.get('currency', 'usd')  # Default to USD
+            price_amount = updated_row_data.get('price')
+            price_currency = updated_row_data.get('price_currency', 'usd')  # Default to USD
 
-        # Create a new price for the product
-        stripe.Price.create(
-            product=product.id,
-            unit_amount=price_amount,  # Stripe requires the amount in cents
-            currency=price_currency,
-        )
+            # Assuming you have the Stripe product ID stored in your Supabase table
+            # Retrieve the Stripe product using the product_id from Supabase
+            stripe.Product.modify(
+                product_id,
+                name=product_name
+            )
 
-        return jsonify({'message': 'Product created successfully', 'product_id': product.id}), 200
+            # Update the corresponding price for the product
+            # Note: This is a simplified example; you might need additional logic based on your specific use case
+            price = stripe.Price.list(product=product_id, limit=1).data[0]
+            stripe.Price.modify(
+                price.id,
+                unit_amount=price_amount * 100,  # Stripe requires the amount in cents
+                currency=price_currency,
+            )
 
-    except stripe.error.StripeError as e:
-        return jsonify({'error': str(e)}), 400
+            return jsonify({'message': 'Product updated successfully', 'product_id': product_id}), 200
 
-@app.route('/stripe-products/<product_id>', methods=['PUT'])
-def update_product(product_id):
-    try:
-        # Get updated product details from the request
-        updated_name = request.json.get('product_name')
-        # updated_type = request.json.get('product_type')
-        updated_price_amount = request.json.get('price_amount')
-        updated_price_currency = request.json.get('price_currency')
+        return jsonify({'message': 'Unhandled event type'}), 200
 
-        # Retrieve the product from Stripe
-        product = stripe.Product.retrieve(product_id)
-
-        # Update the product details
-        if updated_name:
-            product.name = updated_name
-        # if updated_type:
-        #     product.type = updated_type
-
-        # Save the updated product
-        product.save()
-
-        # Update the price if provided
-        if updated_price_amount or updated_price_currency:
-            price = stripe.Price.retrieve(product['prices']['data'][0].id)  # Assuming only one price for simplicity
-
-            if updated_price_amount:
-                price.unit_amount = updated_price_amount * 100  # Stripe requires the amount in cents
-            if updated_price_currency:
-                price.currency = updated_price_currency
-
-            # Save the updated price
-            price.save()
-
-        return jsonify({'message': 'Product updated successfully'}), 200
-
-    except stripe.error.StripeError as e:
+    except Exception as e:
         return jsonify({'error': str(e)}), 400
     
 
