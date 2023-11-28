@@ -75,7 +75,7 @@ def manage_product(product_id):
 
 #Update a specific product
 @app.route('/Products/<int:product_id>',methods=['PUT'])
-def update_stripe_product(product_id):
+def update_supabase_product(product_id):
     data = request.json
     response_obj = {}
     for item in data.keys():
@@ -207,7 +207,6 @@ def supabase_webhook():
         print("supabase payload: ",supabase_payload)
         # Extract relevant information from the Supabase payload
         event_type = supabase_payload['type']
-        print("event type: ",event_type)
         # Check if this is an INSERT event
         if event_type == 'INSERT':
             # Extract details about the new row
@@ -224,12 +223,18 @@ def supabase_webhook():
                 name=product_name
             )
 
+            print("stripe product: ",product['id'])
+
             # Create a new price for the product
             stripe.Price.create(
                 product=product.id,
                 unit_amount=price_amount * 100,  # Stripe requires the amount in cents
                 currency=price_currency,
             )
+            supabase_id = new_row_data['id']
+            print("stripe id: ", product['id']," supabase id: ",supabase_id)
+
+            update_supabase_product(supabase_id,product['id'])
 
             return jsonify({'message': 'Product created successfully', 'product_id': product.id}), 200
 
@@ -237,6 +242,11 @@ def supabase_webhook():
 
     except Exception as e:
         return jsonify({'error': str(e)}), 400
+    
+def update_supabase_product(product_id,stripe_id):
+    response = supabase.table('Products').update({"stripe_product":stripe_id}).eq('id', product_id).execute()
+    if response: return response.data
+    return "Product not found"
 
 
 @app.route('/supabase-webhook-update', methods=['POST'])
