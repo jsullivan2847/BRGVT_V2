@@ -300,10 +300,14 @@ def update_supabase_webhook():
 @app.route('/login', methods=['POST'])
 def login():
     data = request.json
+    email = data['email']
+    password = data['password']
     print(data['email'])
-    user = supabase.auth.sign_in(email=data['email'], password=data['password'])
-    print(user)
-    return "logged in"
+    credentials = {"email":email,"password":password}
+    user = supabase.auth.sign_in_with_password(credentials=credentials)
+    user_id = user.user.id
+    access_token = user.session.access_token
+    return jsonify({"user_id":user_id,"token":access_token})
 
 
 if __name__ == '__main__':
