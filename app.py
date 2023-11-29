@@ -308,7 +308,7 @@ def login():
     user_id = user.user.id
     access_token = user.session.access_token
     response = make_response(jsonify({"user_id":user_id,"token":access_token}))
-    response.set_cookie('access_token', access_token, httponly=True, secure=True)
+    response.set_cookie('user', user_id, httponly=True, secure=True)
     return response
 
 
