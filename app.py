@@ -307,7 +307,9 @@ def login():
     user = supabase.auth.sign_in_with_password(credentials=credentials)
     user_id = user.user.id
     access_token = user.session.access_token
-    return jsonify({"user_id":user_id,"token":access_token})
+    response = make_response(jsonify({"user_id":user_id,"token":access_token}))
+    response.set_cookie('access_token', access_token, httponly=True, secure=True)
+    return response
 
 
 if __name__ == '__main__':
