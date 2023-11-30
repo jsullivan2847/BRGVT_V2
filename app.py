@@ -297,21 +297,21 @@ def update_supabase_webhook():
     
 
 
-@app.route('/login', methods=['POST'])
-def login():
-    data = request.json
-    email = data['email']
-    password = data['password']
-    print(data['email'])
-    credentials = {"email":email,"password":password}
-    user = supabase.auth.sign_in_with_password(credentials=credentials)
-    supabase.auth.get_session()
-    print(user)
-    user_id = user.user.id
-    access_token = user.session.access_token
-    response = make_response(jsonify({"user_id":user_id,"token":access_token}))
-    response.set_cookie('userToken', access_token, httponly=True, secure=True, samesite="None")
-    return response
+# @app.route('/login', methods=['POST'])
+# def login():
+#     data = request.json
+#     email = data['email']
+#     password = data['password']
+#     print(data['email'])
+#     credentials = {"email":email,"password":password}
+#     user = supabase.auth.sign_in_with_password(credentials=credentials)
+#     supabase.auth.get_session()
+#     print(user)
+#     user_id = user.user.id
+#     access_token = user.session.access_token
+#     response = make_response(jsonify({"user_id":user_id,"token":access_token}))
+#     response.set_cookie('userToken', access_token, secure=True, samesite="None")
+#     return response
 
 
 if __name__ == '__main__':
