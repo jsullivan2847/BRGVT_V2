@@ -194,6 +194,7 @@ def create_checkout_session():
         mode="payment",
         success_url='http://localhost:3000/success',  # Customize with your success URL
         cancel_url='http://localhost:3000/cancel',  # Customize with your cancel URL
+        shipping_options= [{"shipping_rate":"shr_1OJSryCkJuLyyqQLnxSFkxbJ"}]
         )
     except Exception as e:
         return str(e)
