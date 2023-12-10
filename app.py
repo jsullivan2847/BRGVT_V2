@@ -165,23 +165,84 @@ def add_to_cart():
         return jsonify({'success':False, 'message': 'Product not found'})
 
 #Get cart session data
-@app.route('/cart', methods=['GET'])
-def getcart():
+# @app.route('/cart', methods=['GET'])
+# def getcart():
+#     cart = session.get('cart', [])
+#     return jsonify({'cart': cart})
+
+@app.route('/cart', methods=['GET', 'PUT', 'OPTIONS'])
+def handle_cart():
+    if request.method == 'OPTIONS':
+        # Handle CORS preflight request
+        response = make_response()
+        response.headers.add('Access-Control-Allow-Methods', 'GET, PUT')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
+        response.headers.add('Access-Control-Allow-Credentials', 'true') 
+        response.headers.add('Content-Type', 'application/json')
+        response = jsonify({'success': True})
+        return response
+
+    if request.method == 'GET':
+        # Handle GET request to retrieve the cart
+        cart = session.get('cart', [])
+        return jsonify({'cart': cart})
+
+    elif request.method == 'PUT':
+        # Handle PUT request to update the quantity
+        data = request.json
+        product_id = data.get('product_id')
+        new_quantity = data.get('new_quantity')
+
+        # Retrieve the cart from the session
+        cart = session.get('cart', [])
+
+        # Find the product in the cart
+        matching_products = [item for item in cart if item['product']['id'] == product_id]
+
+        if matching_products:
+            product = matching_products[0]
+            # Update the quantity
+            product['quantity'] = new_quantity
+            session['cart'] = cart
+            return jsonify({'success': True, 'cart': cart})
+        else:
+            return jsonify({'success': False, 'message': 'Product not found in the cart'})
+
+    else:
+        return jsonify({'success': False, 'message': 'Unsupported method'})
+
+@app.route('/update-cart-quantity', methods=['POST', 'OPTIONS'])
+def update_cart_quantity():
+    if request.method == 'OPTIONS':
+        # Handle CORS preflight request
+        response = make_response()
+        response.headers.add('Access-Control-Allow-Methods', 'POST')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
+        response.headers.add('Access-Control-Allow-Credentials', 'true') 
+        response.headers.add('Content-Type', 'application/json')
+        response = jsonify({'success': True})
+        print(response)
+        return response
+    
+    # Extract data from the React request
+    data = request.json
+    product_id = data.get('product_id')
+    new_quantity = data.get('new_quantity')
+
+    # Retrieve the cart from the session
     cart = session.get('cart', [])
-    return jsonify({'cart': cart})
 
-#edit cart
-def update_cart():
-    data = request.get_json()
+    # Find the product in the cart
+    matching_products = [item for item in cart if item['product']['id'] == product_id]
 
-    # Assuming data is a dictionary containing the updated cart information
-    updated_cart = data.get('cart', [])
-
-    # Update the cart data in the session
-    session['cart'] = updated_cart
-
-    return jsonify({'message': 'Cart updated successfully'})
-
+    if matching_products:
+        product = matching_products[0]
+        # Update the quantity
+        product['quantity'] = new_quantity
+        session['cart'] = cart
+        return jsonify({'success': True, 'cart': cart})
+    else:
+        return jsonify({'success': False, 'message': 'Product not found in the cart'})
 
 @app.route('/create-checkout-session', methods=['POST'])
 def create_checkout_session():
@@ -192,8 +253,9 @@ def create_checkout_session():
         payment_method_types=['card'],
         line_items=[data['items']],
         mode="payment",
-        success_url='http://localhost:3000/success',  # Customize with your success URL
-        cancel_url='http://localhost:3000/cancel',  # Customize with your cancel URL
+        success_url='http://localhost:3000/#/Success',
+        shipping_options = [{"shipping_rate":"shr_1OJSryCkJuLyyqQLnxSFkxbJ"}],
+        shipping_address_collection = {"allowed_countries":['US', 'CA', 'GB', 'AU', 'MX']}
         )
     except Exception as e:
         return str(e)
